@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Run outputs and data
+events/
+runs/
+results/
+output/
+outputs/
+rclv2_native/
+ppo_data/
+events.jsonl
+gos_case_log.txt
+*.log
+*.parquet
+.pytest_cache/
+.DS_Store

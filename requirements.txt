@@ -1,0 +1,2 @@
+# RCLAgent V2 runs in the environment shared with GoS and OpsAgent (sibling _rca_shared/).
+-r ../_rca_shared/requirements.txt
