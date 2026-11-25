@@ -330,7 +330,7 @@ def _flatten_tree(node: dict, parent=None, depth: int = 0, out=None) -> list:
     return out
 
 
-def _install(coord, llm_mod, tracker, span2k: dict):
+def _install(coord, llm_mod, tracker, span2k: dict, incident=None):
     llm_mod.requests = _LLMRequests(tracker)
     coord.requests = _ToolRequests()
 
@@ -350,6 +350,10 @@ def _install(coord, llm_mod, tracker, span2k: dict):
             role = f"rclv2:trace-{k}:final"
         try:
             with EV.scope(role=role):
+                if incident:
+                    prompts = list(prompts)
+                    i = next(i for i, message in enumerate(prompts) if message["role"] == "user")
+                    prompts[i] = {**prompts[i], "content": incident + "\n\n" + prompts[i]["content"]}
                 return orig_chat(prompts, tools)
         except Exception as exc:
             FAILURES.append(f"{type(exc).__name__}: {exc}")
@@ -750,7 +754,7 @@ def _trajectory() -> tuple[list, dict]:
 
 
 # ------------------------------------------------------------------ case
-def run_case(data_dir: Path, tracker) -> dict:
+def run_case(data_dir: Path, tracker, incident=None) -> dict:
     dataset = cases.kind(data_dir)
     dtype = DATASET_TYPES[dataset]
     instances = cases.instances_of(data_dir)
@@ -813,7 +817,7 @@ def run_case(data_dir: Path, tracker) -> dict:
 
     srv = make_server("127.0.0.1", port, tool_server.app, threaded=True)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    call = _install(coord, up_llm, tracker, span2k)
+    call = _install(coord, up_llm, tracker, span2k, incident)
     t0 = time.time()
     try:
         coord.run_all(str(root))
@@ -886,12 +890,12 @@ def main() -> None:
     payload = json.loads(sys.stdin.read())
     data_dir = Path(payload["data_dir"])
     cases.use(data_dir)                             # RCABench or RCA100, from the sandbox's tables
-    cases.set_question(payload.get("question", ""))
+    cases.set_question(payload.get("question", ""), payload.get("cairn_incident"))
     case_id = EV.new_id("case_")
     with EV.scope(role="rclv2", parent=case_id):
         EV.artifact("case_start", {"data_dir": str(data_dir), "case_id": case_id,
                                    "dataset": cases.active(), "alarm_endpoints": cases.alarm_endpoints()})
-        res = run_case(data_dir, tracker)
+        res = run_case(data_dir, tracker, payload["question"] if "cairn_incident" in payload else None)
         EV.artifact("final_graph", res["graph"])
     result = {
         "output": json.dumps(res["graph"], ensure_ascii=False),

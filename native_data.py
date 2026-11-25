@@ -225,6 +225,9 @@ def _fingerprint(case_dir: Path) -> str:
           "compaction": span_compaction(), "dedup": dedup_traces()}
     if cases.kind(case_dir) == "rca100":                 # the abnormal window comes from the question
         fp.update(dataset="rca100", window=cases.incident_window(case_dir))
+    env = cases._read_env(case_dir)
+    if env.get("ABNORMAL_START") and env.get("ABNORMAL_END"):
+        fp["window"] = (env["ABNORMAL_START"], env["ABNORMAL_END"])
     payload = json.dumps(fp, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
